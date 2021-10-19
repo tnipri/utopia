@@ -1,4 +1,6 @@
+/**@jsx jsx */
 import React from 'react'
+import { css, jsx } from '@emotion/react'
 import { OptionsType } from 'react-select'
 import { animated } from 'react-spring'
 import {
@@ -213,6 +215,7 @@ interface AbstractRowForControlProps {
   propPath: PropertyPath
   isScene: boolean
   setGlobalCursor: (cursor: CSSCursor | null) => void
+  indentationLevel: number
 }
 
 function titleForControl(propPath: PropertyPath, control: RegularControlDescription): string {
@@ -242,6 +245,7 @@ const RowForBaseControl = betterReactMemo('RowForBaseControl', (props: RowForBas
   const { propPath, controlDescription, isScene } = props
   const title = titleForControl(propPath, controlDescription)
   const propName = `${PP.lastPart(propPath)}`
+  const indentation = props.indentationLevel * 8
 
   const propMetadata = useComponentPropsInspectorInfo(propPath, isScene, controlDescription)
   const contextMenuItems = Utils.stripNulls([
@@ -258,7 +262,7 @@ const RowForBaseControl = betterReactMemo('RowForBaseControl', (props: RowForBas
       <PropertyLabel
         controlStyles={labelControlStyle}
         target={[propPath]}
-        style={{ textTransform: 'capitalize' }}
+        style={{ textTransform: 'capitalize', paddingLeft: indentation }}
       >
         <Tooltip title={title}>
           <span>{title}</span>
@@ -279,7 +283,7 @@ const RowForBaseControl = betterReactMemo('RowForBaseControl', (props: RowForBas
       items={contextMenuItems}
       data={null}
     >
-      <UIGridRow padded={false} variant='<--1fr--><--1fr-->'>
+      <UIGridRow padded={false} style={{ paddingLeft: 0 }} variant='<--1fr--><--1fr-->'>
         {propertyLabel}
         <ControlForProp
           propPath={propPath}
@@ -323,7 +327,7 @@ const RowForArrayControl = betterReactMemo(
     React.useEffect(() => setInsertingRow(false), [springs.length])
 
     return (
-      <>
+      <React.Fragment>
         <InspectorSectionHeader>
           <SimpleFlexRow style={{ flexGrow: 1 }}>
             <PropertyLabel target={[propPath]} style={{ textTransform: 'capitalize' }}>
@@ -372,6 +376,7 @@ const RowForArrayControl = betterReactMemo(
                   isScene={isScene}
                   propPath={PP.appendPropertyPathElems(propPath, [index])}
                   setGlobalCursor={props.setGlobalCursor}
+                  indentationLevel={1}
                 />
               </animated.div>
             )
@@ -383,9 +388,10 @@ const RowForArrayControl = betterReactMemo(
             isScene={isScene}
             propPath={PP.appendPropertyPathElems(propPath, [springs.length])}
             setGlobalCursor={props.setGlobalCursor}
+            indentationLevel={1}
           />
         ) : null}
-      </>
+      </React.Fragment>
     )
   },
 )
@@ -399,38 +405,46 @@ const RowForObjectControl = betterReactMemo(
   (props: RowForObjectControlProps) => {
     const { propPath, controlDescription, isScene } = props
     const title = titleForControl(propPath, controlDescription)
+    const indentation = props.indentationLevel * 8
 
     return (
       <div
-        style={{
-          padding: '8px 0',
+        css={{
+          '&:hover': {
+            boxShadow: 'inset 1px 0px 0px 0px hsla(0,0%,0%,20%)',
+            background: 'hsl(0,0%,0%,1%)',
+          },
+          '&:focus-within': {
+            boxShadow: 'inset 1px 0px 0px 0px hsla(0,0%,0%,20%)',
+            background: 'hsl(0,0%,0%,1%)',
+          },
         }}
       >
         <div>
-          <SimpleFlexRow style={{ flexGrow: 1 }}>
-            <PropertyLabel target={[propPath]} style={{ textTransform: 'capitalize' }}>
-              {title}
-            </PropertyLabel>
-          </SimpleFlexRow>
-        </div>
-        {mapToArray((innerControl: ControlDescription, prop: string) => {
-          const innerPropPath = PP.appendPropertyPathElems(propPath, [prop])
-          return (
-            <FlexRow
-              style={{
-                margin: '-8px 0 0 8px',
-              }}
-            >
+          <div>
+            <SimpleFlexRow style={{ flexGrow: 1 }}>
+              <PropertyLabel
+                target={[propPath]}
+                style={{ textTransform: 'capitalize', paddingLeft: indentation }}
+              >
+                {title}
+              </PropertyLabel>
+            </SimpleFlexRow>
+          </div>
+          {mapToArray((innerControl: ControlDescription, prop: string) => {
+            const innerPropPath = PP.appendPropertyPathElems(propPath, [prop])
+            return (
               <RowForControl
                 key={`object-control-row-${PP.toString(innerPropPath)}`}
                 controlDescription={innerControl}
                 isScene={isScene}
                 propPath={innerPropPath}
                 setGlobalCursor={props.setGlobalCursor}
+                indentationLevel={props.indentationLevel + 1}
               />
-            </FlexRow>
-          )
-        }, controlDescription.object)}
+            )
+          }, controlDescription.object)}
+        </div>
       </div>
     )
   },
@@ -498,10 +512,10 @@ const RowForUnionControl = betterReactMemo(
       )
     } else {
       return (
-        <>
+        <React.Fragment>
           {label}
           <RowForControl {...props} controlDescription={controlToUse} />
-        </>
+        </React.Fragment>
       )
     }
   },
@@ -516,7 +530,7 @@ const RowForFolderControl = betterReactMemo(
   (props: RowForFolderControlProps) => {
     const { controlDescription } = props
     return (
-      <>
+      <React.Fragment>
         {Object.keys(controlDescription.controls).map((propertyName) => {
           const propertyControl = controlDescription.controls[propertyName]
           return (
@@ -526,10 +540,11 @@ const RowForFolderControl = betterReactMemo(
               isScene={props.isScene}
               propPath={PP.appendPropertyPathElems(props.propPath, [propertyName])}
               setGlobalCursor={props.setGlobalCursor}
+              indentationLevel={props.indentationLevel + 1}
             />
           )
         })}
-      </>
+      </React.Fragment>
     )
   },
 )
@@ -578,7 +593,7 @@ export const ComponentSectionInner = betterReactMemo(
     }, [setSectionExpanded])
 
     return (
-      <>
+      <React.Fragment>
         <InspectorSectionHeader>
           <FlexRow style={{ flexGrow: 1, color: colorTheme.primary.value, gap: 8 }}>
             <Icons.Component color='primary' />
@@ -595,7 +610,7 @@ export const ComponentSectionInner = betterReactMemo(
         </InspectorSectionHeader>
         {when(
           sectionExpanded,
-          <>
+          <React.Fragment>
             {/* Information about the component as a whole */}
             <ComponentInfoBox />
             {/* List of component props with controls */}
@@ -607,9 +622,9 @@ export const ComponentSectionInner = betterReactMemo(
                 isScene={props.isScene}
               />
             ))}
-          </>,
+          </React.Fragment>,
         )}
-      </>
+      </React.Fragment>
     )
   },
 )
@@ -700,7 +715,7 @@ const PropertyControlsSection = betterReactMemo(
             )
 
             return (
-              <>
+              <React.Fragment>
                 {Object.keys(rootParseSuccess).map((propName) => {
                   const propertyControl = rootParseSuccess[propName]
                   return foldEither(
@@ -723,13 +738,14 @@ const PropertyControlsSection = betterReactMemo(
                           setGlobalCursor={setGlobalCursor}
                           controlDescription={propertySuccess}
                           propNamesToDisplay={propNamesToDisplay}
+                          indentationLevel={1}
                         />
                       )
                     },
                     propertyControl,
                   )
                 })}
-              </>
+              </React.Fragment>
             )
           },
           propertyControls,
@@ -747,6 +763,7 @@ const PropertyControlsSection = betterReactMemo(
               controlDescription={controlDescription}
               isScene={props.isScene}
               setGlobalCursor={setGlobalCursor}
+              indentationLevel={1}
             />
           )
         })}
@@ -873,7 +890,7 @@ export const SectionRow = betterReactMemo('SectionRow', (props: SectionRowProps)
     case 'folder':
       const controls = props.controlDescription.controls
       return (
-        <>
+        <React.Fragment>
           {Object.keys(controls).map((propName) => {
             const controlDescription = controls[propName]
             return (
@@ -884,20 +901,27 @@ export const SectionRow = betterReactMemo('SectionRow', (props: SectionRowProps)
                 isScene={props.isScene}
                 setGlobalCursor={props.setGlobalCursor}
                 propNamesToDisplay={props.propNamesToDisplay}
+                indentationLevel={props.indentationLevel + 1}
               />
             )
           })}
-        </>
+        </React.Fragment>
       )
     default:
       if (props.propNamesToDisplay.has(PP.toString(props.propPath))) {
         return (
-          <UIGridRow padded tall={false} variant='<-------------1fr------------->'>
+          <UIGridRow
+            padded
+            tall={false}
+            style={{ paddingLeft: 0 }}
+            variant='<-------------1fr------------->'
+          >
             <RowForControl
               propPath={props.propPath}
               controlDescription={props.controlDescription}
               isScene={props.isScene}
               setGlobalCursor={props.setGlobalCursor}
+              indentationLevel={props.indentationLevel + 1}
             />
           </UIGridRow>
         )
@@ -933,7 +957,7 @@ export class ComponentSection extends React.Component<
   render() {
     if (this.state.errorOccurred) {
       return (
-        <>
+        <React.Fragment>
           <InspectorSectionHeader>Component props</InspectorSectionHeader>
 
           <PropertyRow
@@ -945,7 +969,7 @@ export class ComponentSection extends React.Component<
               Invalid propertyControls value
             </span>
           </PropertyRow>
-        </>
+        </React.Fragment>
       )
     } else {
       return <ComponentSectionInner {...this.props} />
